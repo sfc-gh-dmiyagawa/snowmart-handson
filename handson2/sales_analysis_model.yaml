@@ -1,0 +1,354 @@
+name: sales_analysis_model
+description: 実店舗とECサイトの販売データを分析するためのセマンティックモデルです。200商品の商品マスターと結合済みの売上データ（2023年1月〜2025年3月）を対象に、チャネル別・商品別・期間別の売上分析が可能です。
+tables:
+  - name: RETAIL_DATA_WITH_PRODUCT_MASTER
+    description: 実店舗での販売データ（約1,830件、2023年1月〜2025年3月）。商品マスターと結合済みで、商品名・単価・数量・合計金額を含みます。
+    synonyms:
+      - 店舗販売
+      - 実店舗データ
+      - 店舗売上
+      - 店舗取引データ
+    base_table:
+      database: SNOWRETAIL_DB
+      schema: SNOWRETAIL_SCHEMA
+      table: RETAIL_DATA_WITH_PRODUCT_MASTER
+    primary_key:
+      columns:
+        - transaction_id
+    dimensions:
+      - name: product_id_master
+        description: 商品マスタで定義されている商品ID
+        expr: PRODUCT_ID_MASTER
+        data_type: VARCHAR
+        synonyms:
+          - 商品ID
+          - product_id
+          - プロダクトID
+          - 製品ID
+      - name: product_name_master
+        description: 商品マスタで定義されている商品名
+        expr: PRODUCT_NAME_MASTER
+        data_type: VARCHAR
+        synonyms:
+          - 商品名
+          - 製品名
+          - プロダクト名
+      - name: transaction_id
+        description: トランザクションID
+        expr: TRANSACTION_ID
+        data_type: VARCHAR
+        unique: true
+        synonyms:
+          - 取引ID
+          - 取引番号
+    time_dimensions:
+      - name: transaction_date
+        description: お客様が購入した日
+        expr: TO_DATE(TRANSACTION_DATE)
+        data_type: DATE
+        synonyms:
+          - 取引日
+          - 購入日
+    facts:
+      - name: quantity
+        description: 販売数量
+        expr: QUANTITY
+        data_type: NUMBER
+        synonyms:
+          - 販売数量
+          - 購入数量
+      - name: unit_price
+        description: 販売単価
+        expr: UNIT_PRICE
+        data_type: NUMBER
+        synonyms:
+          - 販売単価
+          - 購入単価
+      - name: total_price
+        description: 販売合計金額
+        expr: TOTAL_PRICE
+        data_type: NUMBER
+        synonyms:
+          - 合計金額
+          - 合計販売金額
+          - 合計購入金額
+    metrics:
+      - name: retail_sales_total
+        description: 実店舗販売合計金額
+        expr: SUM(total_price)
+        synonyms:
+          - 店舗合計売上
+          - 店舗合計販売金額
+      - name: retail_quantity_total
+        description: 実店舗販売合計数量
+        expr: SUM(quantity)
+        synonyms:
+          - 店舗合計売上数
+          - 店舗合計販売数
+      - name: retail_average_order_value
+        description: 実店舗平均注文金額
+        expr: AVG(total_price)
+        synonyms:
+          - 店舗平均売上
+          - 店舗平均販売金額
+  - name: EC_DATA_WITH_PRODUCT_MASTER
+    description: ECサイトでの販売データ（約1,800件、2023年1月〜2025年3月）。商品マスターと結合済みで、商品名・単価・数量・合計金額を含みます。
+    synonyms:
+      - ECデータ
+      - オンライン販売
+      - ネット販売
+      - ネット売上
+      - EC取引データ
+    base_table:
+      database: SNOWRETAIL_DB
+      schema: SNOWRETAIL_SCHEMA
+      table: EC_DATA_WITH_PRODUCT_MASTER
+    primary_key:
+      columns:
+        - transaction_id
+    dimensions:
+      - name: product_id_master
+        description: 商品マスタで定義されている商品ID
+        expr: PRODUCT_ID_MASTER
+        data_type: VARCHAR
+        synonyms:
+          - 商品ID
+          - product_id
+          - プロダクトID
+          - 製品ID
+      - name: product_name_master
+        description: 商品マスタで定義されている商品名
+        expr: PRODUCT_NAME_MASTER
+        data_type: VARCHAR
+        synonyms:
+          - 商品名
+          - 製品名
+          - プロダクト名
+      - name: transaction_id
+        description: トランザクションID
+        expr: TRANSACTION_ID
+        data_type: VARCHAR
+        unique: true
+        synonyms:
+          - 取引ID
+          - 取引番号
+    time_dimensions:
+      - name: transaction_date
+        description: お客様が購入した日
+        expr: TO_DATE(TRANSACTION_DATE)
+        data_type: DATE
+        synonyms:
+          - 取引日
+          - 購入日
+    facts:
+      - name: quantity
+        description: 販売数量
+        expr: QUANTITY
+        data_type: NUMBER
+        synonyms:
+          - 販売数量
+          - 購入数量
+      - name: unit_price
+        description: 販売単価
+        expr: UNIT_PRICE
+        data_type: NUMBER
+        synonyms:
+          - 販売単価
+          - 購入単価
+      - name: total_price
+        description: 販売合計金額
+        expr: TOTAL_PRICE
+        data_type: NUMBER
+        synonyms:
+          - 合計金額
+          - 合計販売金額
+          - 合計購入金額
+    metrics:
+      - name: ec_sales_total
+        description: EC販売合計金額
+        expr: SUM(total_price)
+        synonyms:
+          - EC合計売上
+          - EC合計販売金額
+      - name: ec_quantity_total
+        description: EC販売合計数量
+        expr: SUM(quantity)
+        synonyms:
+          - EC合計売上数
+          - EC合計販売数
+      - name: ec_average_order_value
+        description: EC平均注文金額
+        expr: AVG(total_price)
+        synonyms:
+          - EC平均売上
+          - EC平均販売金額
+relationships:
+  - name: retail_ec_product_relationship
+    left_table: RETAIL_DATA_WITH_PRODUCT_MASTER
+    right_table: EC_DATA_WITH_PRODUCT_MASTER
+    relationship_columns:
+      - left_column: product_id_master
+        right_column: product_id_master
+    join_type: inner
+    relationship_type: many_to_one
+verified_queries:
+  - name: monthly_sales_comparison_2023
+    question: 2023年の月次の実店舗とEC販売の売上合計を比較してください
+    sql: |
+      WITH retail_monthly AS (
+        SELECT DATE_TRUNC('MONTH', TO_DATE(TRANSACTION_DATE)) AS month, SUM(TOTAL_PRICE) AS retail_sales
+        FROM RETAIL_DATA_WITH_PRODUCT_MASTER
+        WHERE YEAR(TO_DATE(TRANSACTION_DATE)) = 2023
+        GROUP BY month
+      ),
+      ec_monthly AS (
+        SELECT DATE_TRUNC('MONTH', TO_DATE(TRANSACTION_DATE)) AS month, SUM(TOTAL_PRICE) AS ec_sales
+        FROM EC_DATA_WITH_PRODUCT_MASTER
+        WHERE YEAR(TO_DATE(TRANSACTION_DATE)) = 2023
+        GROUP BY month
+      )
+      SELECT
+        COALESCE(r.month, e.month) AS month,
+        COALESCE(r.retail_sales, 0) AS retail_sales,
+        COALESCE(e.ec_sales, 0) AS ec_sales
+      FROM retail_monthly r
+      FULL OUTER JOIN ec_monthly e ON r.month = e.month
+      ORDER BY month
+    verified_at: 1742000000
+    verified_by: データアナリスト
+    use_as_onboarding_question: true
+  - name: top_selling_products
+    question: 販売数量が最も多い商品トップ5を教えてください
+    sql: |
+      WITH combined_sales AS (
+        SELECT product_id_master, product_name_master, SUM(quantity) AS total_quantity
+        FROM (
+          SELECT product_id_master, product_name_master, quantity FROM RETAIL_DATA_WITH_PRODUCT_MASTER
+          UNION ALL
+          SELECT product_id_master, product_name_master, quantity FROM EC_DATA_WITH_PRODUCT_MASTER
+        ) 
+        GROUP BY product_id_master, product_name_master
+      )
+      SELECT 
+        product_id_master,
+        product_name_master,
+        total_quantity
+      FROM combined_sales
+      ORDER BY total_quantity DESC
+      LIMIT 5
+    verified_at: 1742000000
+    verified_by: データアナリスト
+    use_as_onboarding_question: true
+  - name: yearly_sales_comparison
+    question: 2023年と2024年の年間売上を実店舗とECで比較してください
+    sql: |
+      WITH retail_yearly AS (
+        SELECT YEAR(TO_DATE(TRANSACTION_DATE)) AS year, SUM(TOTAL_PRICE) AS retail_sales
+        FROM RETAIL_DATA_WITH_PRODUCT_MASTER
+        WHERE YEAR(TO_DATE(TRANSACTION_DATE)) IN (2023, 2024)
+        GROUP BY year
+      ),
+      ec_yearly AS (
+        SELECT YEAR(TO_DATE(TRANSACTION_DATE)) AS year, SUM(TOTAL_PRICE) AS ec_sales
+        FROM EC_DATA_WITH_PRODUCT_MASTER
+        WHERE YEAR(TO_DATE(TRANSACTION_DATE)) IN (2023, 2024)
+        GROUP BY year
+      )
+      SELECT
+        COALESCE(r.year, e.year) AS year,
+        COALESCE(r.retail_sales, 0) AS retail_sales,
+        COALESCE(e.ec_sales, 0) AS ec_sales,
+        COALESCE(r.retail_sales, 0) + COALESCE(e.ec_sales, 0) AS total_sales
+      FROM retail_yearly r
+      FULL OUTER JOIN ec_yearly e ON r.year = e.year
+      ORDER BY year
+    verified_at: 1742000000
+    verified_by: データアナリスト
+    use_as_onboarding_question: true
+  - name: quarterly_trend_2024
+    question: 2024年の四半期別の売上推移をチャネル別に教えてください
+    sql: |
+      WITH combined AS (
+        SELECT TRANSACTION_DATE, TOTAL_PRICE, '店舗' AS CHANNEL FROM RETAIL_DATA_WITH_PRODUCT_MASTER
+        UNION ALL
+        SELECT TRANSACTION_DATE, TOTAL_PRICE, 'EC' AS CHANNEL FROM EC_DATA_WITH_PRODUCT_MASTER
+      )
+      SELECT
+        DATE_TRUNC('QUARTER', TO_DATE(TRANSACTION_DATE)) AS quarter,
+        CHANNEL,
+        SUM(TOTAL_PRICE) AS total_sales
+      FROM combined
+      WHERE YEAR(TO_DATE(TRANSACTION_DATE)) = 2024
+      GROUP BY quarter, CHANNEL
+      ORDER BY quarter, CHANNEL
+    verified_at: 1742000000
+    verified_by: データアナリスト
+    use_as_onboarding_question: true
+  - name: sales_2025_q1
+    question: 2025年第1四半期（1月〜3月）の売上実績をチャネル別に教えてください
+    sql: |
+      WITH combined AS (
+        SELECT TRANSACTION_DATE, TOTAL_PRICE, '店舗' AS CHANNEL FROM RETAIL_DATA_WITH_PRODUCT_MASTER
+        UNION ALL
+        SELECT TRANSACTION_DATE, TOTAL_PRICE, 'EC' AS CHANNEL FROM EC_DATA_WITH_PRODUCT_MASTER
+      )
+      SELECT
+        CHANNEL,
+        COUNT(*) AS transaction_count,
+        SUM(TOTAL_PRICE) AS total_sales,
+        AVG(TOTAL_PRICE) AS avg_order_value
+      FROM combined
+      WHERE TO_DATE(TRANSACTION_DATE) >= '2025-01-01'
+        AND TO_DATE(TRANSACTION_DATE) < '2025-04-01'
+      GROUP BY CHANNEL
+      ORDER BY CHANNEL
+    verified_at: 1742000000
+    verified_by: データアナリスト
+    use_as_onboarding_question: true
+  - name: yoy_monthly_comparison
+    question: 2023年と2024年の同月比較（前年同月比）を教えてください
+    sql: |
+      WITH combined AS (
+        SELECT TRANSACTION_DATE, TOTAL_PRICE FROM RETAIL_DATA_WITH_PRODUCT_MASTER
+        UNION ALL
+        SELECT TRANSACTION_DATE, TOTAL_PRICE FROM EC_DATA_WITH_PRODUCT_MASTER
+      ),
+      monthly AS (
+        SELECT
+          YEAR(TO_DATE(TRANSACTION_DATE)) AS year,
+          MONTH(TO_DATE(TRANSACTION_DATE)) AS month,
+          SUM(TOTAL_PRICE) AS total_sales
+        FROM combined
+        WHERE YEAR(TO_DATE(TRANSACTION_DATE)) IN (2023, 2024)
+        GROUP BY year, month
+      )
+      SELECT
+        m2024.month,
+        m2023.total_sales AS sales_2023,
+        m2024.total_sales AS sales_2024,
+        ROUND((m2024.total_sales - m2023.total_sales) / m2023.total_sales * 100, 1) AS yoy_growth_pct
+      FROM monthly m2024
+      JOIN monthly m2023 ON m2024.month = m2023.month AND m2024.year = 2024 AND m2023.year = 2023
+      ORDER BY m2024.month
+    verified_at: 1742000000
+    verified_by: データアナリスト
+    use_as_onboarding_question: false
+custom_instructions: |
+  このセマンティックモデルは実店舗販売データ（RETAIL_DATA_WITH_PRODUCT_MASTER）とEC販売データ（EC_DATA_WITH_PRODUCT_MASTER）を分析するためのものです。
+
+  データ概要：
+  - 実店舗データ: 約1,830件のトランザクション
+  - ECデータ: 約1,800件のトランザクション
+  - 商品マスター: 200商品（P001〜P200）
+  - 日付範囲: 2023年1月〜2025年3月
+  - 2023年は約500件/チャネル、2024年〜2025年3月は約1,300件/チャネル
+
+  分析上の注意点：
+  1. 売上金額はTOTAL_PRICEカラムに格納されています
+  2. 商品情報は両テーブルに含まれており、PRODUCT_ID_MASTERで結合可能です
+  3. 金額は日本円で表示され、3桁区切りのカンマを使用してください
+  4. 日付フォーマットはYYYY-MM-DDを使用してください
+  5. TRANSACTION_DATEはVARCHAR型のため、日付関数を使う際はTO_DATE()で変換してください
+  6. 年度別の比較分析（前年比など）が可能です。2023年と2024年は通年データ、2025年は1月〜3月のみです
+  7. 実店舗とECの横断分析を行う場合はUNION ALLで結合してください。FULL OUTER JOINは集計後に使用してください
+  8. チャネル（実店舗/EC）を区別する場合は、クエリ内でリテラル値（'店舗', 'EC'）をCHANNELカラムとして追加してください
