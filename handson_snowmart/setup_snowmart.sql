@@ -216,6 +216,39 @@ SHOW DYNAMIC TABLES             IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 SHOW CORTEX SEARCH SERVICES     IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 
 -- ============================================================
+-- Step 9: Git Repository 統合（ノートブック配布用）
+-- ============================================================
+-- GitHubリポジトリを Snowflake に接続し、
+-- Snowsight から直接ノートブックを開けるようにします。
+
+CREATE OR REPLACE API INTEGRATION snowmart_git_integration
+    API_PROVIDER = git_https_api
+    API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-dmiyagawa/')
+    ENABLED = TRUE;
+
+CREATE OR REPLACE GIT REPOSITORY snowmart_handson_repo
+    API_INTEGRATION = snowmart_git_integration
+    ORIGIN = 'https://github.com/sfc-gh-dmiyagawa/snowmart-handson.git';
+
+-- 最新コミットを取得
+ALTER GIT REPOSITORY snowmart_handson_repo FETCH;
+
+-- リポジトリ内のファイルを確認
+SHOW GIT FILES IN @snowmart_handson_repo/branches/main/handson_snowmart/;
+
+-- ============================================================
+-- ノートブックを開く手順
+-- ============================================================
+-- Snowsight 左メニュー > Projects > Notebooks
+-- 右上「+ Notebook」> 「Create from Repository」を選択
+-- Repository : snowmart_handson_repo
+-- Branch     : main
+-- File path  : handson_snowmart/snowmart_ai_handson.ipynb
+-- Database   : SNOWMART_DB / Schema: SNOWMART_SCHEMA / Warehouse: COMPUTE_WH
+-- 「Create」→ ノートブックが開きます
+-- ============================================================
+
+-- ============================================================
 -- セットアップ完了チェックリスト
 -- ============================================================
 -- [ ] SNOWMART_STORES       : 500行
@@ -226,6 +259,7 @@ SHOW CORTEX SEARCH SERVICES     IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 -- [ ] STORE_SALES_ANALYSIS  : Dynamic Table が ACTIVE 状態
 -- [ ] STORE_DOCUMENTS       : 10行
 -- [ ] SNOWMART_DOC_SEARCH   : Cortex Search Service が ACTIVE 状態
+-- [ ] snowmart_handson_repo : Git Repository が接続済み
 --
 -- セッション中に参加者が作成するオブジェクト（このSQLには含めない）:
 -- [ ] SNOWMART_ANALYSIS     : Semantic View（Scene 3 で作成）
