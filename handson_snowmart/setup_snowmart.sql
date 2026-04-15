@@ -14,13 +14,12 @@
 -- Step 5: テーブル作成
 -- Step 6: データロード（COPY INTO）
 -- Step 7: データ確認
--- Step 8: Dynamic Table 作成
--- Step 9: Cortex Search 用ドキュメント格納
--- Step 10: Cortex Search Service の作成
--- Step 11: ノートブックの自動デプロイ
--- Step 12: 全オブジェクト確認
+-- Step 8: Cortex Search 用ドキュメント格納
+-- Step 9: ノートブックの自動デプロイ
+-- Step 10: 全オブジェクト確認
 --
 -- 【セッション中に参加者が自分で実行するもの】
+--   - Cortex Search Service の作成（Scene 2）
 --   - Semantic View の作成（Scene 3）
 --   - Cortex Agent の作成（Scene 4）
 -- ============================================================
@@ -180,46 +179,13 @@ UNION ALL SELECT 'CUSTOMER_REVIEWS',  COUNT(*) FROM CUSTOMER_REVIEWS;
 --   SNOWMART_STORES   = 500
 --   COMPETITOR_STORES = 1000
 --   AREA_MASTER       = 50
---   DAILY_SALES       = 約 180,000
+--   DAILY_SALES       = 約 365,000
 --   CUSTOMER_REVIEWS  = 500
 
 
--- ============================================================
--- Step 8: Dynamic Table 作成（AI分析用パイプライン）
--- ============================================================
-CREATE OR REPLACE DYNAMIC TABLE STORE_SALES_ANALYSIS
-    TARGET_LAG = '1 hour'
-    WAREHOUSE = COMPUTE_WH
-AS
-SELECT
-    s.STORE_ID,
-    st.STORE_NAME,
-    st.PREFECTURE,
-    st.CITY,
-    st.STORE_TYPE,
-    st.FLOOR_AREA_SQM,
-    st.NEAREST_STATION,
-    a.POPULATION,
-    a.HOUSEHOLDS,
-    a.DAYTIME_POPULATION_RATIO,
-    a.AVG_ANNUAL_INCOME,
-    a.AREA_TYPE,
-    s.SALES_DATE,
-    s.SALES_AMOUNT,
-    s.CUSTOMER_COUNT,
-    s.AVG_UNIT_PRICE,
-    s.FOOD_SALES,
-    s.BEVERAGE_SALES,
-    s.DAILY_GOODS_SALES
-FROM DAILY_SALES s
-JOIN SNOWMART_STORES st ON s.STORE_ID = st.STORE_ID
-LEFT JOIN AREA_MASTER a  ON st.PREFECTURE = a.PREFECTURE AND st.CITY = a.CITY;
-
-SELECT '【Step 8】Dynamic Table の作成が完了しました' AS STATUS;
-
 
 -- ============================================================
--- Step 9: Cortex Search 用ドキュメント格納
+-- Step 8: Cortex Search 用ドキュメント格納
 -- ============================================================
 CREATE OR REPLACE TABLE STORE_DOCUMENTS (
     DOC_ID      VARCHAR(10),
@@ -250,28 +216,12 @@ INSERT INTO STORE_DOCUMENTS VALUES
 ('D010', '出店ガイドライン', '出店候補エリア評価スコアリング',
  '以下の5項目を各20点満点で評価し、合計80点以上を出店可とする。(1)商圏人口・昼間人口 (2)競合密度（少ないほど高得点） (3)既存スノーマート店との距離（近すぎると減点） (4)エリアの所得水準 (5)立地アクセス（駅近・幹線道路沿い等）');
 
-SELECT '【Step 9】Cortex Search 用ドキュメントの格納が完了しました' AS STATUS;
+SELECT '【Step 8】Cortex Search 用ドキュメントの格納が完了しました' AS STATUS;
 
-
--- ============================================================
--- Step 10: Cortex Search Service の作成
--- ============================================================
--- ※ インデックス構築に数分かかります。セッション開始前に実行してください。
-CREATE OR REPLACE CORTEX SEARCH SERVICE SNOWMART_DOC_SEARCH
-    ON DOC_TEXT
-    ATTRIBUTES DOC_TITLE, DOC_SECTION
-    WAREHOUSE = COMPUTE_WH
-    TARGET_LAG = '1 hour'
-    AS (
-        SELECT DOC_ID, DOC_TITLE, DOC_SECTION, DOC_TEXT
-        FROM STORE_DOCUMENTS
-    );
-
-SELECT '【Step 10】Cortex Search Service の作成が完了しました' AS STATUS;
 
 
 -- ============================================================
--- Step 11: ノートブックの自動デプロイ
+-- Step 9: ノートブックの自動デプロイ
 -- ============================================================
 CREATE OR REPLACE NOTEBOOK SNOWMART_AI_HANDSON
     FROM '@snowmart_handson_repo/branches/main/handson_snowmart/'
@@ -280,16 +230,14 @@ CREATE OR REPLACE NOTEBOOK SNOWMART_AI_HANDSON
 
 ALTER NOTEBOOK SNOWMART_AI_HANDSON ADD LIVE VERSION FROM LAST;
 
-SELECT '【Step 11】ノートブックのデプロイが完了しました' AS STATUS;
+SELECT '【Step 9】ノートブックのデプロイが完了しました' AS STATUS;
 -- Snowsight 左メニュー > Projects > Notebooks > SNOWMART_AI_HANDSON を開く
 
 
 -- ============================================================
--- Step 12: 全オブジェクト確認
+-- Step 10: 全オブジェクト確認
 -- ============================================================
 SHOW TABLES              IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
-SHOW DYNAMIC TABLES      IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
-SHOW CORTEX SEARCH SERVICES IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 SHOW NOTEBOOKS           IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 
 -- ============================================================
@@ -300,7 +248,6 @@ SHOW NOTEBOOKS           IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 -- [ ] AREA_MASTER           : 50行
 -- [ ] DAILY_SALES           : 約180,000行
 -- [ ] CUSTOMER_REVIEWS      : 500行
--- [ ] STORE_SALES_ANALYSIS  : Dynamic Table が ACTIVE 状態
 -- [ ] STORE_DOCUMENTS       : 10行
 -- [ ] SNOWMART_DOC_SEARCH   : Cortex Search Service が ACTIVE 状態
 -- [ ] SNOWMART_AI_HANDSON   : Notebook が Snowsight から開ける状態

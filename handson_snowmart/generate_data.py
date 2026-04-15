@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import math
 
 random.seed(42)
-OUTPUT_DIR = "/Users/dmiyagawa/Downloads/cortex-handson-jp-main/handson_snowmart/data"
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 # ============================================================
 # Japanese location data
@@ -187,7 +187,8 @@ area_lookup = {}
 for a in AREAS:
     area_lookup[(a[0], a[1])] = {"type": a[8], "pop": a[4], "ratio": a[6]}
 
-start_date = datetime(2024, 1, 1)
+start_date_2024 = datetime(2024, 1, 1)
+start_date_2025 = datetime(2025, 1, 1)
 sales_rows = []
 
 for store in stores:
@@ -206,7 +207,8 @@ for store in stores:
     # Adjust by floor area
     base_sales = int(base_sales * (store["FLOOR_AREA_SQM"] / 100))
 
-    for day_offset in range(366):  # 2024 is leap year
+    for start_date, num_days in [(start_date_2024, 366), (start_date_2025, 365)]:
+      for day_offset in range(num_days):
         d = start_date + timedelta(days=day_offset)
         dow = d.weekday()  # 0=Mon, 6=Sun
 
@@ -310,7 +312,7 @@ age_weights = [0.05, 0.30, 0.30, 0.20, 0.15]
 
 for i in range(500):
     store_id = random.choice(stores)["STORE_ID"]
-    review_date = start_date + timedelta(days=random.randint(0, 365))
+    review_date = start_date_2024 + timedelta(days=random.randint(0, 730))
     age_group = random.choices(age_groups, weights=age_weights, k=1)[0]
 
     r = random.random()
