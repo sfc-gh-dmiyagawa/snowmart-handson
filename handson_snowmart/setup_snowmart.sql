@@ -1,12 +1,12 @@
 -- ============================================================
--- SnowMart 出店戦略ハンズオン: 講師用セットアップSQL
+-- SnowMart 出店戦略ハンズオン: 講師用セットアップSQL（完全版）
 -- ============================================================
--- このSQLは講師が事前準備で使用するものです。
--- 参加者はシナリオ (scenario_snowmart.md) に従って手動で実行します。
+-- このSQLはセッション開始前に実行します。
+-- 参加者はアカウント作成後、CSVアップロード → このSQL実行 → 完了。
 --
--- 用途:
---   1. Git リポジトリからデータを取得して一括セットアップする場合
---   2. 事前にデモ環境を構築して動作確認する場合
+-- セッション中に参加者が自分で実行するのは以下のみ:
+--   - Semantic View の作成（Scene 3）
+--   - Cortex Agent の作成（Scene 4）
 -- ============================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -24,92 +24,115 @@ CREATE OR REPLACE STAGE SNOWMART_STAGE
     FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 
 -- ============================================================
+-- ここでCSVファイルをステージにアップロードしてください
+-- ============================================================
+-- Snowsight 左メニュー > Data > Databases
+-- > SNOWMART_DB > SNOWMART_SCHEMA > Stages > SNOWMART_STAGE
+-- 「+ Files」ボタンから以下の5ファイルをアップロード:
+--   snowmart_stores.csv / competitor_stores.csv / area_master.csv
+--   daily_sales.csv / customer_reviews.csv
+-- アップロード完了後、Step 2以降を実行してください
+-- ============================================================
+
+-- ============================================================
 -- Step 2: テーブル作成
 -- ============================================================
 
 CREATE OR REPLACE TABLE SNOWMART_STORES (
-    STORE_ID VARCHAR(10),
-    STORE_NAME VARCHAR(100),
-    PREFECTURE VARCHAR(20),
-    CITY VARCHAR(50),
-    LATITUDE FLOAT,
-    LONGITUDE FLOAT,
-    STORE_TYPE VARCHAR(10),
-    FLOOR_AREA_SQM INT,
-    OPEN_DATE DATE,
-    NEAREST_STATION VARCHAR(100)
+    STORE_ID         VARCHAR(10),
+    STORE_NAME       VARCHAR(100),
+    PREFECTURE       VARCHAR(20),
+    CITY             VARCHAR(50),
+    LATITUDE         FLOAT,
+    LONGITUDE        FLOAT,
+    STORE_TYPE       VARCHAR(10),
+    FLOOR_AREA_SQM   INT,
+    OPEN_DATE        DATE,
+    NEAREST_STATION  VARCHAR(100)
 );
 
 CREATE OR REPLACE TABLE COMPETITOR_STORES (
-    COMPETITOR_ID VARCHAR(10),
-    CHAIN_NAME VARCHAR(50),
-    PREFECTURE VARCHAR(20),
-    CITY VARCHAR(50),
-    LATITUDE FLOAT,
-    LONGITUDE FLOAT,
-    FLOOR_AREA_SQM INT
+    COMPETITOR_ID    VARCHAR(10),
+    CHAIN_NAME       VARCHAR(50),
+    PREFECTURE       VARCHAR(20),
+    CITY             VARCHAR(50),
+    LATITUDE         FLOAT,
+    LONGITUDE        FLOAT,
+    FLOOR_AREA_SQM   INT
 );
 
 CREATE OR REPLACE TABLE AREA_MASTER (
-    AREA_ID VARCHAR(10),
-    PREFECTURE VARCHAR(20),
-    CITY VARCHAR(50),
-    POPULATION INT,
-    HOUSEHOLDS INT,
-    DAYTIME_POPULATION_RATIO FLOAT,
-    AVG_ANNUAL_INCOME INT,
-    AREA_TYPE VARCHAR(20)
+    AREA_ID                   VARCHAR(10),
+    PREFECTURE                VARCHAR(20),
+    CITY                      VARCHAR(50),
+    POPULATION                INT,
+    HOUSEHOLDS                INT,
+    DAYTIME_POPULATION_RATIO  FLOAT,
+    AVG_ANNUAL_INCOME         INT,
+    AREA_TYPE                 VARCHAR(20)
 );
 
 CREATE OR REPLACE TABLE DAILY_SALES (
-    STORE_ID VARCHAR(10),
-    SALES_DATE DATE,
-    SALES_AMOUNT INT,
-    CUSTOMER_COUNT INT,
-    AVG_UNIT_PRICE FLOAT,
-    FOOD_SALES INT,
-    BEVERAGE_SALES INT,
+    STORE_ID          VARCHAR(10),
+    SALES_DATE        DATE,
+    SALES_AMOUNT      INT,
+    CUSTOMER_COUNT    INT,
+    AVG_UNIT_PRICE    FLOAT,
+    FOOD_SALES        INT,
+    BEVERAGE_SALES    INT,
     DAILY_GOODS_SALES INT
 );
 
 CREATE OR REPLACE TABLE CUSTOMER_REVIEWS (
-    REVIEW_ID VARCHAR(10),
-    STORE_ID VARCHAR(10),
-    REVIEW_DATE DATE,
-    RATING INT,
-    REVIEW_TEXT VARCHAR(1000),
-    REVIEWER_AGE_GROUP VARCHAR(20)
+    REVIEW_ID           VARCHAR(10),
+    STORE_ID            VARCHAR(10),
+    REVIEW_DATE         DATE,
+    RATING              INT,
+    REVIEW_TEXT         VARCHAR(1000),
+    REVIEWER_AGE_GROUP  VARCHAR(20)
 );
 
 -- ============================================================
 -- Step 3: データロード
 -- ============================================================
--- 事前に以下のCSVファイルを SNOWMART_STAGE にアップロードしてください:
---   snowmart_stores.csv, competitor_stores.csv, area_master.csv,
---   daily_sales.csv, customer_reviews.csv
+COPY INTO SNOWMART_STORES
+    FROM @SNOWMART_STAGE/snowmart_stores.csv
+    FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 
-COPY INTO SNOWMART_STORES FROM @SNOWMART_STAGE/snowmart_stores.csv
+COPY INTO COMPETITOR_STORES
+    FROM @SNOWMART_STAGE/competitor_stores.csv
     FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
-COPY INTO COMPETITOR_STORES FROM @SNOWMART_STAGE/competitor_stores.csv
+
+COPY INTO AREA_MASTER
+    FROM @SNOWMART_STAGE/area_master.csv
     FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
-COPY INTO AREA_MASTER FROM @SNOWMART_STAGE/area_master.csv
+
+COPY INTO DAILY_SALES
+    FROM @SNOWMART_STAGE/daily_sales.csv
     FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
-COPY INTO DAILY_SALES FROM @SNOWMART_STAGE/daily_sales.csv
-    FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
-COPY INTO CUSTOMER_REVIEWS FROM @SNOWMART_STAGE/customer_reviews.csv
+
+COPY INTO CUSTOMER_REVIEWS
+    FROM @SNOWMART_STAGE/customer_reviews.csv
     FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 
 -- ============================================================
 -- Step 4: データ確認
 -- ============================================================
-SELECT 'SNOWMART_STORES' AS TABLE_NAME, COUNT(*) AS ROW_COUNT FROM SNOWMART_STORES
+SELECT 'SNOWMART_STORES'   AS TABLE_NAME, COUNT(*) AS ROW_COUNT FROM SNOWMART_STORES
 UNION ALL SELECT 'COMPETITOR_STORES', COUNT(*) FROM COMPETITOR_STORES
-UNION ALL SELECT 'AREA_MASTER', COUNT(*) FROM AREA_MASTER
-UNION ALL SELECT 'DAILY_SALES', COUNT(*) FROM DAILY_SALES
-UNION ALL SELECT 'CUSTOMER_REVIEWS', COUNT(*) FROM CUSTOMER_REVIEWS;
+UNION ALL SELECT 'AREA_MASTER',        COUNT(*) FROM AREA_MASTER
+UNION ALL SELECT 'DAILY_SALES',        COUNT(*) FROM DAILY_SALES
+UNION ALL SELECT 'CUSTOMER_REVIEWS',   COUNT(*) FROM CUSTOMER_REVIEWS;
+
+-- 期待値:
+--   SNOWMART_STORES   = 500
+--   COMPETITOR_STORES = 1000
+--   AREA_MASTER       = 50
+--   DAILY_SALES       = 約 180,000
+--   CUSTOMER_REVIEWS  = 500
 
 -- ============================================================
--- Step 5: Dynamic Table 作成
+-- Step 5: Dynamic Table 作成（AI分析用パイプライン）
 -- ============================================================
 CREATE OR REPLACE DYNAMIC TABLE STORE_SALES_ANALYSIS
     TARGET_LAG = '1 hour'
@@ -124,6 +147,7 @@ SELECT
     st.FLOOR_AREA_SQM,
     st.NEAREST_STATION,
     a.POPULATION,
+    a.HOUSEHOLDS,
     a.DAYTIME_POPULATION_RATIO,
     a.AVG_ANNUAL_INCOME,
     a.AREA_TYPE,
@@ -136,16 +160,16 @@ SELECT
     s.DAILY_GOODS_SALES
 FROM DAILY_SALES s
 JOIN SNOWMART_STORES st ON s.STORE_ID = st.STORE_ID
-LEFT JOIN AREA_MASTER a ON st.PREFECTURE = a.PREFECTURE AND st.CITY = a.CITY;
+LEFT JOIN AREA_MASTER a  ON st.PREFECTURE = a.PREFECTURE AND st.CITY = a.CITY;
 
 -- ============================================================
--- Step 6: Cortex Search 用ドキュメント
+-- Step 6: Cortex Search 用ドキュメント格納
 -- ============================================================
 CREATE OR REPLACE TABLE STORE_DOCUMENTS (
-    DOC_ID VARCHAR(10),
-    DOC_TITLE VARCHAR(200),
+    DOC_ID      VARCHAR(10),
+    DOC_TITLE   VARCHAR(200),
     DOC_SECTION VARCHAR(200),
-    DOC_TEXT VARCHAR(5000)
+    DOC_TEXT    VARCHAR(5000)
 );
 
 INSERT INTO STORE_DOCUMENTS VALUES
@@ -164,11 +188,16 @@ INSERT INTO STORE_DOCUMENTS VALUES
 ('D007', '出店ガイドライン', '2024年度の戦略変更点',
  'EC連携として店舗受取サービスの需要増に対応し宅配ボックス設置スペースの確保を推奨。省人化としてセルフレジ導入を標準化、新規出店は原則セルフレジ2台以上を設置。フードロス削減のためAIによる需要予測システムの導入を全店で推進中。'),
 ('D008', '出店ガイドライン', '競合チェーン別の特徴',
- 'セブン-イレブンはPB商品が強く品質重視の顧客層。ファミリーマートはファストフードが強く若年層に人気。ローソンはスイーツ・ヘルシー系に強く女性客比率が高い。上記チェーンが手薄なカテゴリで差別化を図ることが重要。');
+ 'セブン-イレブンはPB商品が強く品質重視の顧客層。ファミリーマートはファストフードが強く若年層に人気。ローソンはスイーツ・ヘルシー系に強く女性客比率が高い。上記チェーンが手薄なカテゴリで差別化を図ることが重要。'),
+('D009', '出店ガイドライン', '住宅地出店の特殊条件',
+ '住宅地でのコンビニは近隣住民との関係が重要。深夜営業は周辺住民の意見を事前ヒアリングすること。駐車場は最低4台分を確保し、来客のターンオーバーを高める設計とする。日配品（惣菜・弁当）の品揃えを充実させ、夕方需要を取り込む。'),
+('D010', '出店ガイドライン', '出店候補エリア評価スコアリング',
+ '以下の5項目を各20点満点で評価し、合計80点以上を出店可とする。(1)商圏人口・昼間人口 (2)競合密度（少ないほど高得点） (3)既存スノーマート店との距離（近すぎると減点） (4)エリアの所得水準 (5)立地アクセス（駅近・幹線道路沿い等）');
 
 -- ============================================================
--- Step 7: Cortex Search Service
+-- Step 7: Cortex Search Service の作成
 -- ============================================================
+-- ※ インデックス構築に数分かかります。セッション開始前に実行してください。
 CREATE OR REPLACE CORTEX SEARCH SERVICE SNOWMART_DOC_SEARCH
     ON DOC_TEXT
     ATTRIBUTES DOC_TITLE, DOC_SECTION
@@ -180,20 +209,25 @@ CREATE OR REPLACE CORTEX SEARCH SERVICE SNOWMART_DOC_SEARCH
     );
 
 -- ============================================================
--- Step 8: Streamlit アプリ（講師デモ用に手動作成）
+-- Step 8: 全オブジェクト確認
 -- ============================================================
--- Snowsight > Projects > Streamlit > + Streamlit App から作成してください
--- App name: SNOWMART_DASHBOARD
--- scenario_snowmart.md の Scene 7 に記載のベースコードを貼り付け
+SHOW TABLES                     IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
+SHOW DYNAMIC TABLES             IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
+SHOW CORTEX SEARCH SERVICES     IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 
 -- ============================================================
--- Step 9: Semantic View & Cortex Agent（Day 2 用）
+-- セットアップ完了チェックリスト
 -- ============================================================
--- scenario_snowmart.md の Scene 4 (Day 2) に記載のSQLを実行してください
-
+-- [ ] SNOWMART_STORES       : 500行
+-- [ ] COMPETITOR_STORES     : 1000行
+-- [ ] AREA_MASTER           : 50行
+-- [ ] DAILY_SALES           : 約180,000行
+-- [ ] CUSTOMER_REVIEWS      : 500行
+-- [ ] STORE_SALES_ANALYSIS  : Dynamic Table が ACTIVE 状態
+-- [ ] STORE_DOCUMENTS       : 10行
+-- [ ] SNOWMART_DOC_SEARCH   : Cortex Search Service が ACTIVE 状態
+--
+-- セッション中に参加者が作成するオブジェクト（このSQLには含めない）:
+-- [ ] SNOWMART_ANALYSIS     : Semantic View（Scene 3 で作成）
+-- [ ] SNOWMART_AGENT        : Cortex Agent（Scene 4 で作成）
 -- ============================================================
--- 確認: 全オブジェクトの一覧
--- ============================================================
-SHOW TABLES IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
-SHOW DYNAMIC TABLES IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
-SHOW CORTEX SEARCH SERVICES IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
