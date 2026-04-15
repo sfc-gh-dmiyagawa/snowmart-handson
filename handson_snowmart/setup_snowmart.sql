@@ -1,43 +1,89 @@
 -- ============================================================
--- SnowMart 出店戦略ハンズオン: 講師用セットアップSQL（完全版）
+-- SnowMart 出店戦略ハンズオン: セットアップSQL（完全版）
 -- ============================================================
--- このSQLはセッション開始前に実行します。
--- 参加者はアカウント作成後、CSVアップロード → このSQL実行 → 完了。
+-- 【概要】
+-- このSQLはセッション開始前に一括実行します。
+-- GitHubから自動でデータ取得・ノートブックをデプロイします。
+-- CSVの手動アップロードは不要です。
 --
--- セッション中に参加者が自分で実行するのは以下のみ:
+-- 【処理内容】
+-- Step 1: 環境設定
+-- Step 2: データベース・スキーマ・ステージの作成
+-- Step 3: GitHub連携の設定（API統合 + Gitリポジトリ）
+-- Step 4: GitHubからCSVデータを自動取得
+-- Step 5: テーブル作成
+-- Step 6: データロード（COPY INTO）
+-- Step 7: データ確認
+-- Step 8: Dynamic Table 作成
+-- Step 9: Cortex Search 用ドキュメント格納
+-- Step 10: Cortex Search Service の作成
+-- Step 11: ノートブックの自動デプロイ
+-- Step 12: 全オブジェクト確認
+--
+-- 【セッション中に参加者が自分で実行するもの】
 --   - Semantic View の作成（Scene 3）
 --   - Cortex Agent の作成（Scene 4）
 -- ============================================================
 
-USE ROLE ACCOUNTADMIN;
-USE WAREHOUSE COMPUTE_WH;
 
 -- ============================================================
--- Step 1: データベース・スキーマ・ステージの作成
+-- Step 1: 環境設定
+-- ============================================================
+USE ROLE ACCOUNTADMIN;
+CREATE WAREHOUSE IF NOT EXISTS COMPUTE_WH;
+USE WAREHOUSE COMPUTE_WH;
+
+SELECT '【Step 1】環境設定が完了しました' AS STATUS;
+
+
+-- ============================================================
+-- Step 2: データベース・スキーマ・ステージの作成
 -- ============================================================
 CREATE OR REPLACE DATABASE SNOWMART_DB;
 CREATE OR REPLACE SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 USE SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 
 CREATE OR REPLACE STAGE SNOWMART_STAGE
-    DIRECTORY = (ENABLE = TRUE)
-    FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
+    ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')
+    DIRECTORY = (ENABLE = TRUE);
+
+SELECT '【Step 2】データベース・スキーマ・ステージの作成が完了しました' AS STATUS;
+
 
 -- ============================================================
--- ここでCSVファイルをステージにアップロードしてください
+-- Step 3: GitHub連携の設定
 -- ============================================================
--- Snowsight 左メニュー > Data > Databases
--- > SNOWMART_DB > SNOWMART_SCHEMA > Stages > SNOWMART_STAGE
--- 「+ Files」ボタンから以下の5ファイルをアップロード:
---   snowmart_stores.csv / competitor_stores.csv / area_master.csv
---   daily_sales.csv / customer_reviews.csv
--- アップロード完了後、Step 2以降を実行してください
--- ============================================================
+CREATE OR REPLACE API INTEGRATION snowmart_git_integration
+    API_PROVIDER = git_https_api
+    API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-dmiyagawa/')
+    ENABLED = TRUE;
+
+CREATE OR REPLACE GIT REPOSITORY snowmart_handson_repo
+    API_INTEGRATION = snowmart_git_integration
+    ORIGIN = 'https://github.com/sfc-gh-dmiyagawa/snowmart-handson.git';
+
+-- 最新コミットを取得
+ALTER GIT REPOSITORY snowmart_handson_repo FETCH;
+
+SELECT '【Step 3】GitHub連携の設定が完了しました' AS STATUS;
+
 
 -- ============================================================
--- Step 2: テーブル作成
+-- Step 4: GitHubからCSVデータを自動取得
 -- ============================================================
+COPY FILES
+    INTO @SNOWMART_DB.SNOWMART_SCHEMA.SNOWMART_STAGE
+    FROM @snowmart_handson_repo/branches/main/handson_snowmart/data/;
 
+-- 取得したファイルを確認
+LS @SNOWMART_STAGE;
+
+SELECT '【Step 4】GitHubからデータの取得が完了しました' AS STATUS;
+
+
+-- ============================================================
+-- Step 5: テーブル作成
+-- ============================================================
 CREATE OR REPLACE TABLE SNOWMART_STORES (
     STORE_ID         VARCHAR(10),
     STORE_NAME       VARCHAR(100),
@@ -92,8 +138,11 @@ CREATE OR REPLACE TABLE CUSTOMER_REVIEWS (
     REVIEWER_AGE_GROUP  VARCHAR(20)
 );
 
+SELECT '【Step 5】テーブル作成が完了しました' AS STATUS;
+
+
 -- ============================================================
--- Step 3: データロード
+-- Step 6: データロード
 -- ============================================================
 COPY INTO SNOWMART_STORES
     FROM @SNOWMART_STAGE/snowmart_stores.csv
@@ -115,14 +164,17 @@ COPY INTO CUSTOMER_REVIEWS
     FROM @SNOWMART_STAGE/customer_reviews.csv
     FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 
+SELECT '【Step 6】データロードが完了しました' AS STATUS;
+
+
 -- ============================================================
--- Step 4: データ確認
+-- Step 7: データ確認
 -- ============================================================
 SELECT 'SNOWMART_STORES'   AS TABLE_NAME, COUNT(*) AS ROW_COUNT FROM SNOWMART_STORES
 UNION ALL SELECT 'COMPETITOR_STORES', COUNT(*) FROM COMPETITOR_STORES
-UNION ALL SELECT 'AREA_MASTER',        COUNT(*) FROM AREA_MASTER
-UNION ALL SELECT 'DAILY_SALES',        COUNT(*) FROM DAILY_SALES
-UNION ALL SELECT 'CUSTOMER_REVIEWS',   COUNT(*) FROM CUSTOMER_REVIEWS;
+UNION ALL SELECT 'AREA_MASTER',       COUNT(*) FROM AREA_MASTER
+UNION ALL SELECT 'DAILY_SALES',       COUNT(*) FROM DAILY_SALES
+UNION ALL SELECT 'CUSTOMER_REVIEWS',  COUNT(*) FROM CUSTOMER_REVIEWS;
 
 -- 期待値:
 --   SNOWMART_STORES   = 500
@@ -131,8 +183,9 @@ UNION ALL SELECT 'CUSTOMER_REVIEWS',   COUNT(*) FROM CUSTOMER_REVIEWS;
 --   DAILY_SALES       = 約 180,000
 --   CUSTOMER_REVIEWS  = 500
 
+
 -- ============================================================
--- Step 5: Dynamic Table 作成（AI分析用パイプライン）
+-- Step 8: Dynamic Table 作成（AI分析用パイプライン）
 -- ============================================================
 CREATE OR REPLACE DYNAMIC TABLE STORE_SALES_ANALYSIS
     TARGET_LAG = '1 hour'
@@ -162,8 +215,11 @@ FROM DAILY_SALES s
 JOIN SNOWMART_STORES st ON s.STORE_ID = st.STORE_ID
 LEFT JOIN AREA_MASTER a  ON st.PREFECTURE = a.PREFECTURE AND st.CITY = a.CITY;
 
+SELECT '【Step 8】Dynamic Table の作成が完了しました' AS STATUS;
+
+
 -- ============================================================
--- Step 6: Cortex Search 用ドキュメント格納
+-- Step 9: Cortex Search 用ドキュメント格納
 -- ============================================================
 CREATE OR REPLACE TABLE STORE_DOCUMENTS (
     DOC_ID      VARCHAR(10),
@@ -194,8 +250,11 @@ INSERT INTO STORE_DOCUMENTS VALUES
 ('D010', '出店ガイドライン', '出店候補エリア評価スコアリング',
  '以下の5項目を各20点満点で評価し、合計80点以上を出店可とする。(1)商圏人口・昼間人口 (2)競合密度（少ないほど高得点） (3)既存スノーマート店との距離（近すぎると減点） (4)エリアの所得水準 (5)立地アクセス（駅近・幹線道路沿い等）');
 
+SELECT '【Step 9】Cortex Search 用ドキュメントの格納が完了しました' AS STATUS;
+
+
 -- ============================================================
--- Step 7: Cortex Search Service の作成
+-- Step 10: Cortex Search Service の作成
 -- ============================================================
 -- ※ インデックス構築に数分かかります。セッション開始前に実行してください。
 CREATE OR REPLACE CORTEX SEARCH SERVICE SNOWMART_DOC_SEARCH
@@ -208,45 +267,30 @@ CREATE OR REPLACE CORTEX SEARCH SERVICE SNOWMART_DOC_SEARCH
         FROM STORE_DOCUMENTS
     );
 
--- ============================================================
--- Step 8: 全オブジェクト確認
--- ============================================================
-SHOW TABLES                     IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
-SHOW DYNAMIC TABLES             IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
-SHOW CORTEX SEARCH SERVICES     IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
+SELECT '【Step 10】Cortex Search Service の作成が完了しました' AS STATUS;
+
 
 -- ============================================================
--- Step 9: Git Repository 統合（ノートブック配布用）
+-- Step 11: ノートブックの自動デプロイ
 -- ============================================================
--- GitHubリポジトリを Snowflake に接続し、
--- Snowsight から直接ノートブックを開けるようにします。
+CREATE OR REPLACE NOTEBOOK SNOWMART_AI_HANDSON
+    FROM '@snowmart_handson_repo/branches/main/handson_snowmart/'
+    MAIN_FILE = 'snowmart_ai_handson.ipynb'
+    QUERY_WAREHOUSE = COMPUTE_WH;
 
-CREATE OR REPLACE API INTEGRATION snowmart_git_integration
-    API_PROVIDER = git_https_api
-    API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-dmiyagawa/')
-    ENABLED = TRUE;
+ALTER NOTEBOOK SNOWMART_AI_HANDSON ADD LIVE VERSION FROM LAST;
 
-CREATE OR REPLACE GIT REPOSITORY snowmart_handson_repo
-    API_INTEGRATION = snowmart_git_integration
-    ORIGIN = 'https://github.com/sfc-gh-dmiyagawa/snowmart-handson.git';
+SELECT '【Step 11】ノートブックのデプロイが完了しました' AS STATUS;
+-- Snowsight 左メニュー > Projects > Notebooks > SNOWMART_AI_HANDSON を開く
 
--- 最新コミットを取得
-ALTER GIT REPOSITORY snowmart_handson_repo FETCH;
-
--- リポジトリ内のファイルを確認
-SHOW GIT FILES IN @snowmart_handson_repo/branches/main/handson_snowmart/;
 
 -- ============================================================
--- ノートブックを開く手順
+-- Step 12: 全オブジェクト確認
 -- ============================================================
--- Snowsight 左メニュー > Projects > Notebooks
--- 右上「+ Notebook」> 「Create from Repository」を選択
--- Repository : snowmart_handson_repo
--- Branch     : main
--- File path  : handson_snowmart/snowmart_ai_handson.ipynb
--- Database   : SNOWMART_DB / Schema: SNOWMART_SCHEMA / Warehouse: COMPUTE_WH
--- 「Create」→ ノートブックが開きます
--- ============================================================
+SHOW TABLES              IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
+SHOW DYNAMIC TABLES      IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
+SHOW CORTEX SEARCH SERVICES IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
+SHOW NOTEBOOKS           IN SCHEMA SNOWMART_DB.SNOWMART_SCHEMA;
 
 -- ============================================================
 -- セットアップ完了チェックリスト
@@ -259,7 +303,7 @@ SHOW GIT FILES IN @snowmart_handson_repo/branches/main/handson_snowmart/;
 -- [ ] STORE_SALES_ANALYSIS  : Dynamic Table が ACTIVE 状態
 -- [ ] STORE_DOCUMENTS       : 10行
 -- [ ] SNOWMART_DOC_SEARCH   : Cortex Search Service が ACTIVE 状態
--- [ ] snowmart_handson_repo : Git Repository が接続済み
+-- [ ] SNOWMART_AI_HANDSON   : Notebook が Snowsight から開ける状態
 --
 -- セッション中に参加者が作成するオブジェクト（このSQLには含めない）:
 -- [ ] SNOWMART_ANALYSIS     : Semantic View（Scene 3 で作成）
