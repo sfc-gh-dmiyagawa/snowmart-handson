@@ -49,27 +49,13 @@
    - Edition: `Enterprise`（推奨）
 3. メール認証を完了し、Snowsight にログインできることを確認
 
-### 2. CSVファイルのダウンロード
+### 2. setup_snowmart.sql の実行
 
-GitHub からデータを取得します。
-
-```
-リポジトリ: https://github.com/sfc-gh-dmiyagawa/snowmart-handson
-ダウンロード対象: handson_snowmart/data/ 以下の5ファイル
-  - snowmart_stores.csv
-  - competitor_stores.csv
-  - area_master.csv
-  - daily_sales.csv
-  - customer_reviews.csv
-```
-
-### 3. setup_snowmart.sql の実行
+CSVの手動アップロードは不要です。GitHubからデータが自動取得されます。
 
 1. Snowsight にログインし、**Worksheets** を開く
-2. `setup_snowmart.sql` の内容をワークシートに貼り付け
-3. **Step 1** のステージ作成まで実行する
-4. Snowsight の Stage 画面からCSVを5本アップロード
-5. **Step 2 以降**を実行してデータをロード
+2. `setup_snowmart.sql` の内容を全選択してワークシートに貼り付け
+3. **全体を一括実行**する（Step 1〜10）
 
 ```sql
 -- 最後にこのクエリで確認。すべての行数が想定値であればOK
@@ -82,8 +68,18 @@ UNION ALL SELECT 'CUSTOMER_REVIEWS',  COUNT(*) FROM CUSTOMER_REVIEWS;
 -- DAILY_SALES=約180,000 / CUSTOMER_REVIEWS=500
 ```
 
-> **重要**: Cortex Search Service のインデックス構築に数分かかります。  
-> セッション開始の **15分前** までに setup_snowmart.sql を完了させてください。
+### 3. Workspace Notebook を開く
+
+1. Snowsight 左メニュー → **Projects** → **Notebooks**
+2. 右上「**+ Notebook**」ドロップダウン →「**Import from Repository**」
+3. 以下を選択して「Import」をクリック
+   - Repository: `snowmart_handson_repo`
+   - Branch: `main`
+   - Path: `handson_snowmart/snowmart_ai_handson.ipynb`
+4. ノートブックが Workspace として開きます
+
+> **重要**: setup_snowmart.sql（Step 3）でGitリポジトリ統合（`snowmart_handson_repo`）が  
+> 作成されていることが前提です。セッション開始の **15分前** までに完了させてください。
 
 ---
 
